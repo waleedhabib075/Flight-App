@@ -9,6 +9,7 @@ import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, Vi
 const PackageDetailScreen = ({ route, navigation }) => {
   const { package: packageData } = route.params
   const [isLiked, setIsLiked] = useState(false)
+  
 
   useEffect(() => {
     const checkIfLiked = async () => {
@@ -52,6 +53,8 @@ const PackageDetailScreen = ({ route, navigation }) => {
   const handleBookNow = () => {
     navigation.navigate("PaymentMethods", { package: packageData })
   }
+
+
 
   return (
     <SafeAreaView style={styles.container}>

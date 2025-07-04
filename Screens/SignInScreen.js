@@ -1,6 +1,5 @@
 "use client"
 
-import AsyncStorage from "@react-native-async-storage/async-storage"
 import { LinearGradient } from "expo-linear-gradient"
 import { useState } from "react"
 import {
@@ -12,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native"
 import { signIn } from "../lib/supabase"
 
@@ -26,9 +26,14 @@ const SignInScreen = ({ navigation, route }) => {
     // Clear previous errors
     setErrorMessage("")
 
-    // Simple validation
+    // Validation
     if (!email || !password) {
       setErrorMessage("Please fill in all fields")
+      return
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setErrorMessage("Please enter a valid email address")
       return
     }
 
@@ -36,31 +41,15 @@ const SignInScreen = ({ navigation, route }) => {
 
     try {
       console.log("Attempting to sign in with:", email)
-      const { data, error } = await signIn(email, password)
-
-      if (error) {
-        console.error("Sign in error:", error)
-        setErrorMessage(error.message || "Failed to sign in")
-        return
-      }
-
-      if (data?.session) {
-        console.log("Sign in successful, session created")
-        // Store user info in AsyncStorage for app usage
-        await AsyncStorage.setItem("userEmail", email)
-
-        if (data.user?.user_metadata?.name) {
-          await AsyncStorage.setItem("userName", data.user.user_metadata.name)
-        }
-
-        setIsLoggedIn(true)
-      } else {
-        console.log("Sign in response:", data)
-        setErrorMessage("No session returned. Please try again.")
-      }
+      const { user, error } = await signIn(email, password)
+      
+      if (error) throw error
+      
+      console.log("Sign in successful")
+      setIsLoggedIn(true)
     } catch (error) {
-      console.error("Unexpected error during sign in:", error)
-      setErrorMessage("An unexpected error occurred. Please try again.")
+      console.error("Sign in error:", error)
+      setErrorMessage(error.message || "An error occurred during sign in")
     } finally {
       setIsLoading(false)
     }

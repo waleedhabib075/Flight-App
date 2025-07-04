@@ -10,35 +10,35 @@ const samplePackages = [
         id: "pkg1",
         destination: "Bali, Indonesia",
         image: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=800",
-        price: "$1,299",
+        price: "£1,299",
         duration: "7 days"
     },
     {
         id: "pkg2",
         destination: "Santorini, Greece",
         image: "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?auto=format&fit=crop&w=800",
-        price: "$1,899",
+        price: "£1,899",
         duration: "10 days"
     },
     {
         id: "pkg3",
         destination: "Tokyo, Japan",
         image: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=800",
-        price: "$2,199",
+        price: "£2,199",
         duration: "12 days"
     },
     {
         id: "pkg4",
         destination: "Paris, France",
         image: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=800",
-        price: "$1,599",
+        price: "£1,599",
         duration: "8 days"
     },
     {
         id: "pkg5",
         destination: "New York, USA",
         image: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?auto=format&fit=crop&w=800",
-        price: "$1,399",
+        price: "£1,399",
         duration: "6 days"
     }
 ]

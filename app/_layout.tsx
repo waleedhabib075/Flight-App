@@ -14,10 +14,29 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
-import { getCurrentUser } from "../lib/supabase";
+import { getCurrentUser, supabase } from "../lib/supabase";
+import { checkDatabaseSetup, createLikesTable } from "../lib/dbCheck";
 
-const Stack = createStackNavigator();
-const Tab = createBottomTabNavigator();
+type RootStackParamList = {
+  Packages: undefined;
+  Likes: undefined;
+  Profile: undefined;
+  Welcome: { setHasSeenWelcome: (value: boolean) => void };
+  SignIn: { setIsLoggedIn: (value: boolean) => void };
+  CreateAccount: { setIsLoggedIn: (value: boolean) => void };
+  PackageDetail: { package: any };
+  PaymentMethods: undefined;
+  MainTabs: undefined;
+  Home: undefined;
+};
+
+type ScreenProps = {
+  navigation: any;
+  route: any;
+};
+
+const Stack = createStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<RootStackParamList>();
 
 function MainTabs() {
   return (
@@ -62,71 +81,102 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [dbReady, setDbReady] = useState(false);
 
   useEffect(() => {
-    // Check if user is logged in and if they've seen the welcome screen
-    const checkStatus = async () => {
+    const initializeApp = async () => {
       try {
-        setIsCheckingAuth(true);
-
-        // First check if the welcome screen has been seen
-        const welcomeSeen = await AsyncStorage.getItem("welcomeSeen");
-        setHasSeenWelcome(welcomeSeen === "true");
-
-        // Check if we have a stored user email (as a backup auth check)
-        const storedEmail = await AsyncStorage.getItem("userEmail");
-        const storedName = await AsyncStorage.getItem("userName");
-
-        // Try to get the current user from Supabase
-        const { user, error } = await getCurrentUser();
-
-        if (error) {
-          console.error("Error checking user status:", error);
-          // If there's an error but we have stored user info, consider the user logged in
-          if (storedEmail && storedName) {
-            console.log("Using stored user info as fallback");
-            setIsLoggedIn(true);
-          } else {
-            setIsLoggedIn(false);
-            setError(
-              typeof error === "object" && error !== null && "message" in error
-                ? (error.message as string)
-                : "An unknown error occurred"
-            );
-          }
-        } else {
-          // If we have a user from Supabase or stored credentials, consider the user logged in
-          const isAuthenticated = !!user || (!!storedEmail && !!storedName);
-          console.log(
-            "Authentication status:",
-            isAuthenticated ? "Logged in" : "Not logged in"
-          );
-          setIsLoggedIn(isAuthenticated);
-
-          // If we have a Supabase user but no stored info, store the info
-          if (user && (!storedEmail || !storedName)) {
-            await AsyncStorage.setItem("userEmail", user.email || "");
-            if (user.user_metadata?.name) {
-              await AsyncStorage.setItem("userName", user.user_metadata.name);
-            }
+        // First check database setup
+        const dbCheck = await checkDatabaseSetup();
+        console.log('Database check result:', dbCheck);
+        
+        if (!dbCheck.exists) {
+          console.log('Database table does not exist, attempting to create...');
+          const creationResult = await createLikesTable();
+          if (!creationResult.success) {
+            console.error('Failed to create database table:', creationResult.error);
+            setError('Database setup failed. Please check your connection.');
+            return;
           }
         }
+        
+        setDbReady(true);
+        // Then check auth status
+        const checkAuthStatus = async () => {
+          try {
+            setIsCheckingAuth(true);
+            
+            // Check if the welcome screen has been seen
+            const welcomeSeen = await AsyncStorage.getItem("welcomeSeen");
+            setHasSeenWelcome(welcomeSeen === "true");
+            
+            // Check Supabase auth state
+            const { user, error } = await getCurrentUser();
+            
+            if (error) {
+              console.error("Error checking auth status:", error);
+              setIsLoggedIn(false);
+            } else if (user) {
+              console.log("User is authenticated:", user.email);
+              setIsLoggedIn(true);
+              
+              // Store user info in AsyncStorage for quick access
+              await AsyncStorage.setItem("userEmail", user.email || "");
+              if (user.user_metadata?.name) {
+                await AsyncStorage.setItem("userName", user.user_metadata.name);
+              }
+            } else {
+              console.log("No authenticated user found");
+              setIsLoggedIn(false);
+            }
+          } catch (err) {
+            console.error("Error in checkStatus:", err);
+            setError(
+              err instanceof Error ? err.message : "An unexpected error occurred"
+            );
+            setIsLoggedIn(false);
+          } finally {
+            setIsLoading(false);
+            setIsCheckingAuth(false);
+          }
+        };
+
+        await checkAuthStatus();
       } catch (err) {
-        console.error("Error in checkStatus:", err);
-        setError(
-          err instanceof Error ? err.message : "An unexpected error occurred"
-        );
-        setIsLoggedIn(false);
+        console.error('Initialization error:', err);
+        setError('Failed to initialize app. Please try again.');
       } finally {
         setIsLoading(false);
-        setIsCheckingAuth(false);
       }
     };
 
-    checkStatus();
+    initializeApp();
   }, []);
 
-  if (isLoading) {
+  // Set up auth state change listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        setIsLoggedIn(true);
+        await AsyncStorage.setItem("userEmail", session.user.email || "");
+        if (session.user.user_metadata?.name) {
+          await AsyncStorage.setItem("userName", session.user.user_metadata.name);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setIsLoggedIn(false);
+        await AsyncStorage.multiRemove(["userEmail", "userName"]);
+      }
+    });
+    
+    // Cleanup function
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  if (isLoading || !dbReady) {
     return (
       <View
         style={{
@@ -157,24 +207,42 @@ export default function App() {
       {!isLoggedIn ? (
         // Auth screens
         <>
-          <Stack.Screen
-            name="SignIn"
-            component={SignInScreen}
-            initialParams={{ setIsLoggedIn }}
-          />
-          <Stack.Screen
-            name="CreateAccount"
-            component={CreateAccountScreen}
-            initialParams={{ setIsLoggedIn }}
-          />
+          <Stack.Screen name="SignIn">
+            {(props) => (
+              <SignInScreen 
+                {...props} 
+                route={{
+                  ...props.route,
+                  params: { ...props.route.params, setIsLoggedIn }
+                }}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="CreateAccount">
+            {(props) => (
+              <CreateAccountScreen 
+                {...props} 
+                route={{
+                  ...props.route,
+                  params: { ...props.route.params, setIsLoggedIn }
+                }}
+              />
+            )}
+          </Stack.Screen>
         </>
       ) : !hasSeenWelcome ? (
         // Show Welcome screen first if not seen yet
-        <Stack.Screen
-          name="Welcome"
-          component={WelcomeScreen}
-          initialParams={{ setHasSeenWelcome }}
-        />
+        <Stack.Screen name="Welcome">
+          {(props) => (
+            <WelcomeScreen 
+              {...props} 
+              route={{
+                ...props.route,
+                params: { ...props.route.params, setHasSeenWelcome }
+              }}
+            />
+          )}
+        </Stack.Screen>
       ) : (
         // Main app screens
         <>

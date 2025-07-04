@@ -1,19 +1,7 @@
-"use client"
-
 import { Ionicons } from "@expo/vector-icons"
-import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useRef, useState } from "react"
-import {
-    Animated,
-    Dimensions,
-    Image,
-    PanResponder,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native"
+import { Animated, Dimensions, Image, PanResponder, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+// import { addLike } from "../lib/likes"  // Temporarily disabled like functionality
 
 const SCREEN_WIDTH = Dimensions.get("window").width
 const SWIPE_THRESHOLD = 120
@@ -24,34 +12,28 @@ const travelPackages = [
         id: "1",
         destination: "Fiji",
         price: "£750",
-        image:
-            "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
-        description:
-            "Experience the crystal clear waters and white sandy beaches of Fiji. Perfect for relaxation and adventure.",
+        image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
+        description: "Experience the crystal clear waters and white sandy beaches of Fiji. Perfect for relaxation and adventure.",
     },
     {
         id: "2",
         destination: "Bali",
         price: "£650",
-        image:
-            "https://images.unsplash.com/photo-1537996194471-e657df975ab4?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
+        image: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
         description: "Discover the beauty of Bali with its lush rice terraces, stunning temples, and vibrant culture.",
     },
     {
         id: "3",
         destination: "Santorini",
         price: "£900",
-        image:
-            "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
-        description:
-            "Visit the iconic white and blue buildings of Santorini and enjoy breathtaking sunsets over the Aegean Sea.",
+        image: "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
+        description: "Visit the iconic white and blue buildings of Santorini and enjoy breathtaking sunsets over the Aegean Sea.",
     },
     {
         id: "4",
         destination: "Maldives",
         price: "£1200",
-        image:
-            "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
+        image: "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=60",
         description: "Stay in overwater bungalows and swim with marine life in the crystal clear waters of the Maldives.",
     },
     {
@@ -69,66 +51,61 @@ const PackagesScreen = ({ navigation }) => {
     const [currentIndex, setCurrentIndex] = useState(0)
     const [swipeDirection, setSwipeDirection] = useState(null)
 
+    // Like functionality temporarily disabled
+    /*
     const saveLikedPackage = async (package_) => {
         try {
-            const likedPackagesJson = await AsyncStorage.getItem("likedPackages")
-            const likedPackages = likedPackagesJson ? JSON.parse(likedPackagesJson) : []
-
-            // Check if package is already liked
-            if (!likedPackages.some((p) => p.id === package_.id)) {
-                const updatedLikedPackages = [...likedPackages, package_]
-                await AsyncStorage.setItem("likedPackages", JSON.stringify(updatedLikedPackages))
+            if (!package_?.id) {
+                console.error('Cannot save like: Invalid package data');
+                return;
             }
-        } catch (error) {
-            console.log("Error saving liked package:", error)
-        }
-    }
 
+            // Save to local storage for offline access
+            try {
+                const likedPackagesJson = await AsyncStorage.getItem("likedPackages");
+                const likedPackages = likedPackagesJson ? JSON.parse(likedPackagesJson) : [];
+
+                if (!likedPackages.some((p) => p.id === package_.id)) {
+                    const updatedLikedPackages = [...likedPackages, package_];
+                    await AsyncStorage.setItem("likedPackages", JSON.stringify(updatedLikedPackages));
+                    console.log('Saved package to local storage:', package_.id);
+                }
+            } catch (storageError) {
+                console.error('Error saving to local storage:', storageError);
+            }
+    */
     const panResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onPanResponderMove: (_, gesture) => {
                 position.setValue({ x: gesture.dx, y: gesture.dy })
                 // Update swipe direction for visual feedback
-                if (gesture.dx > 25) {
-                    setSwipeDirection("right")
-                } else if (gesture.dx < -25) {
-                    setSwipeDirection("left")
+                if (Math.abs(gesture.dx) > 25) {
+                    setSwipeDirection(gesture.dx > 0 ? "right" : "left")
                 } else {
                     setSwipeDirection(null)
                 }
             },
             onPanResponderRelease: (_, gesture) => {
-                if (gesture.dx > SWIPE_THRESHOLD) {
-                    swipeRight()
-                } else if (gesture.dx < -SWIPE_THRESHOLD) {
-                    swipeLeft()
+                if (Math.abs(gesture.dx) > SWIPE_THRESHOLD) {
+                    nextCard()
                 } else {
                     resetPosition()
                 }
                 setSwipeDirection(null)
             },
-        }),
+        })
     ).current
 
-    const swipeRight = () => {
-        Animated.timing(position, {
-            toValue: { x: SCREEN_WIDTH + 100, y: 0 },
-            duration: 300,
-            useNativeDriver: false,
-        }).start(() => {
-            const currentPackage = packages[currentIndex]
-            saveLikedPackage(currentPackage)
-            nextCard()
-        })
-    }
-
-    const swipeLeft = () => {
-        Animated.timing(position, {
-            toValue: { x: -SCREEN_WIDTH - 100, y: 0 },
-            duration: 300,
-            useNativeDriver: false,
-        }).start(nextCard)
+    const nextCard = () => {
+        setCurrentIndex((prevIndex) => {
+            const nextIndex = prevIndex + 1;
+            if (nextIndex < packages.length) {
+                position.setValue({ x: 0, y: 0 });
+                return nextIndex;
+            }
+            return prevIndex;
+        });
     }
 
     const resetPosition = () => {
@@ -138,17 +115,10 @@ const PackagesScreen = ({ navigation }) => {
             useNativeDriver: false,
         }).start()
     }
-
-    const nextCard = () => {
-        setCurrentIndex((prevIndex) => prevIndex + 1)
-        position.setValue({ x: 0, y: 0 })
-    }
-
     const handleCardPress = () => {
-        if (currentIndex < packages.length) {
-            navigation.navigate("PackageDetail", { package: packages[currentIndex] })
-        }
-    }
+        console.log("Navigating to PackageDetail with:", packages[currentIndex]);
+        navigation.navigate("PackageDetail", { package: packages[currentIndex] });
+    };
 
     const renderNoMoreCards = () => {
         return (
@@ -205,6 +175,7 @@ const PackagesScreen = ({ navigation }) => {
                     <View style={styles.cardContent}>
                         <Text style={styles.destinationText}>{package_.destination}</Text>
                         <Text style={styles.priceText}>{package_.price}</Text>
+                        <Text style={styles.packageDescription}>{package_.description}</Text>
                     </View>
                 </Animated.View>
             </TouchableOpacity>
@@ -249,8 +220,9 @@ const styles = StyleSheet.create({
         color: "#0088CC",
     },
     instructions: {
+        bottom: 20,
         paddingHorizontal: 20,
-        marginBottom: 20,
+        marginBottom: 50,
         alignItems: "center",
     },
     instructionsText: {
@@ -266,7 +238,7 @@ const styles = StyleSheet.create({
     },
     cardContainer: {
         width: SCREEN_WIDTH - 40,
-        height: 520,
+        height: 560,
         borderRadius: 20,
         overflow: "hidden",
         borderWidth: 1,
@@ -305,8 +277,8 @@ const styles = StyleSheet.create({
         resizeMode: "cover",
     },
     cardContent: {
-        padding: 15,
-        alignItems: "center",
+        padding: 20,
+        minHeight: 180, // Ensure minimum height to prevent overlap
     },
     destinationText: {
         fontSize: 24,
@@ -317,6 +289,13 @@ const styles = StyleSheet.create({
         fontSize: 20,
         color: "#333",
         marginTop: 5,
+    },
+    packageDescription: {
+        color: '#666',
+        marginTop: 10,
+        fontSize: 14,
+        lineHeight: 20,
+        flexShrink: 1, // Allow text to shrink if needed
     },
     noMoreCardsContainer: {
         width: SCREEN_WIDTH - 40,

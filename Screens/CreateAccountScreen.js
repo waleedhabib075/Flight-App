@@ -1,5 +1,6 @@
 "use client"
 
+import { LinearGradient } from "expo-linear-gradient"
 import { useState } from "react"
 import {
   Alert,
@@ -12,8 +13,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native"
-import AsyncStorage from "@react-native-async-storage/async-storage"
-import { LinearGradient } from "expo-linear-gradient"
 import { signUp } from "../lib/supabase"
 
 const CreateAccountScreen = ({ navigation, route }) => {
@@ -22,52 +21,47 @@ const CreateAccountScreen = ({ navigation, route }) => {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
   const { setIsLoggedIn } = route.params
 
   const handleCreateAccount = async () => {
-    // Simple validation
+    // Clear previous errors
+    setErrorMessage("")
+
+    // Validation
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert("Error", "Please fill in all fields")
+      setErrorMessage("Please fill in all fields")
+      return
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setErrorMessage("Please enter a valid email address")
+      return
+    }
+
+    if (password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters")
       return
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match")
+      setErrorMessage("Passwords do not match")
       return
     }
 
     setIsLoading(true)
 
     try {
-      const { data, error } = await signUp(email, password, name)
-
-      if (error) {
-        Alert.alert("Error", error.message || "Failed to create account")
-        return
-      }
-
-      // Store user info in AsyncStorage for app usage
-      await AsyncStorage.setItem("userEmail", email)
-      await AsyncStorage.setItem("userName", name)
-
-      if (data?.session) {
-        setIsLoggedIn(true)
-      } else {
-        // If no session was returned but signup was successful
-        Alert.alert(
-          "Account Created",
-          "Your account has been created successfully. Please check your email for verification.",
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.navigate("SignIn"),
-            },
-          ],
-        )
-      }
+      console.log("Creating account for:", email)
+      const { user, error } = await signUp(email, password, name)
+      
+      if (error) throw error
+      
+      console.log("Account created successfully")
+      setIsLoggedIn(true)
     } catch (error) {
-      Alert.alert("Error", "Failed to create account. Please try again.")
-      console.log(error)
+      console.error("Account creation error:", error)
+      setErrorMessage(error.message || "An error occurred during account creation")
     } finally {
       setIsLoading(false)
     }
